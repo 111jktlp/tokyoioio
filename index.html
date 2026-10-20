@@ -1,0 +1,793 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>tokyoioioi</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#080A10;--panel:#101521;--panel2:#161c2c;--line:#27304a;--text:#d7deef;--dim:#8590ab;--cyan:#22e6ff;--mag:#ff3db8;
+--sans:'Sora',system-ui,sans-serif;--mono:'IBM Plex Mono',ui-monospace,monospace}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0;background:var(--bg);color:var(--text);font:13px/1.45 var(--sans)}
+button,input{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--cyan);outline-offset:2px}
+body::after{content:"";position:fixed;inset:0;pointer-events:none;z-index:9999;background:repeating-linear-gradient(0deg,rgba(255,255,255,.025) 0 1px,transparent 1px 3px)}
+#app{display:grid;grid-template-rows:48px 1fr;height:100%}
+header{display:flex;align-items:center;gap:18px;padding:0 14px;background:var(--panel);border-bottom:1px solid var(--line)}
+.logo{font-weight:600;font-size:17px;letter-spacing:.02em;margin-right:8px}
+.logo b{color:var(--cyan);text-shadow:0 0 10px rgba(34,230,255,.6)}
+nav{display:flex;gap:4px}
+.tab{background:none;border:0;border-bottom:2px solid transparent;padding:14px 10px;cursor:pointer;color:var(--dim);font-family:var(--mono)}
+.tab[aria-selected=true]{color:var(--cyan);border-color:var(--cyan)}
+.count{margin-left:auto;font-family:var(--mono);color:var(--dim)}.count b{color:var(--mag)}
+#menuBtn{display:none}
+main{display:grid;grid-template-columns:330px 1fr;min-height:0;position:relative}
+aside#side{background:var(--panel);border-right:1px solid var(--line);overflow:auto;padding:12px;display:flex;flex-direction:column;gap:14px;z-index:1100}
+#mapwrap{position:relative;min-width:0}
+#map{position:absolute;inset:0;background:#0b0e16}
+input[type=search]{width:100%;padding:8px 10px;background:var(--bg);border:1px solid var(--line);border-radius:3px}
+.grp h4{margin:0 0 6px;font-size:11px;font-weight:500;font-family:var(--mono);color:var(--dim)}
+.chips{display:flex;flex-wrap:wrap;gap:5px}
+.chip{border:1px solid var(--line);background:var(--bg);padding:3px 9px;border-radius:12px;cursor:pointer;display:flex;gap:6px;align-items:center}
+.chip i{width:8px;height:8px;border-radius:50%;background:var(--c,var(--dim))}
+.chip:hover{border-color:var(--dim)}
+.chip[aria-pressed=true]{border-color:var(--c,var(--cyan));box-shadow:0 0 8px -2px var(--c,var(--cyan));background:var(--panel2)}
+.chip[aria-pressed=true]{color:#fff;font-weight:600}
+.chip[aria-pressed=true] i{box-shadow:0 0 6px var(--c)}
+.chip[aria-pressed=true]::after{content:"✓";color:var(--c,var(--cyan))}
+.btn{background:var(--panel2);border:1px solid var(--line);padding:6px 12px;border-radius:3px;cursor:pointer}
+.btn:hover{border-color:var(--cyan)}
+.btn.mag{border-color:var(--mag)}
+.card{border:1px solid var(--line);border-left:3px solid var(--c,var(--cyan));background:var(--bg);padding:8px 10px;cursor:pointer;text-align:left;width:100%;display:block}
+.card[aria-pressed=true]{background:var(--panel2);box-shadow:0 0 12px -4px var(--c)}
+.card small,.meta{color:var(--dim);font-family:var(--mono);font-size:11px}
+ol.stops{margin:6px 0 0;padding:0;list-style:none;display:grid;gap:4px}
+ol.stops button{background:none;border:0;cursor:pointer;text-align:left;padding:2px 0;display:flex;gap:8px}
+ol.stops b{color:var(--c);font-family:var(--mono);min-width:20px}
+.list{display:grid;gap:6px}
+.empty{color:var(--dim);padding:14px;border:1px dashed var(--line);text-align:center}
+.foot{margin-top:auto;display:flex;gap:6px;flex-wrap:wrap}
+/* map overlays */
+.bar{position:absolute;top:10px;left:50%;transform:translateX(-50%);z-index:1000;display:flex;gap:10px;flex-wrap:wrap;justify-content:center;max-width:calc(100% - 80px)}
+.seg{display:flex;background:var(--panel);border:1px solid var(--line);border-radius:3px;overflow:hidden}
+.seg button{background:none;border:0;padding:6px 11px;cursor:pointer;color:var(--dim)}
+.seg button[aria-pressed=true]{background:var(--panel2);color:var(--cyan);box-shadow:inset 0 -2px var(--cyan)}
+#legend{position:absolute;left:10px;bottom:24px;z-index:1000;background:rgba(16,21,33,.92);border:1px solid var(--line);padding:8px 10px;max-width:210px;max-height:40%;overflow:auto}
+#legend div{display:flex;gap:7px;align-items:center;font-size:12px}
+#legend i{width:10px;height:10px;border-radius:50%;background:var(--c)}
+#toast{position:absolute;bottom:24px;left:50%;transform:translateX(-50%);z-index:1000;background:var(--panel);border:1px solid var(--mag);padding:6px 12px;display:none}
+
+/* Photon place search */
+#placeSearch{position:absolute;top:62px;left:12px;width:min(360px,calc(100% - 24px));z-index:1200}
+#placeSearchForm{display:flex;background:var(--panel);border:1px solid var(--cyan);box-shadow:0 5px 22px #0008}
+#placeSearchInput{width:100%;min-width:0;padding:11px 12px;background:transparent;border:0;outline:0;color:var(--text)}
+#placeSearchForm button{border:0;border-left:1px solid var(--line);background:var(--panel2);padding:0 13px;cursor:pointer;color:var(--cyan)}
+#searchResults{display:none;margin-top:5px;background:var(--panel);border:1px solid var(--line);box-shadow:0 8px 24px #0009;max-height:min(55vh,420px);overflow:auto}
+.search-result{display:block;width:100%;padding:10px 12px;text-align:left;background:transparent;border:0;border-bottom:1px solid var(--line);cursor:pointer}
+.search-result:hover,.search-result[aria-pressed=true]{background:var(--panel2);border-left:2px solid var(--cyan)}
+.search-result strong{display:block;color:var(--text);font-weight:600}
+.search-result small{display:block;color:var(--dim);font-family:var(--mono);font-size:10px;margin-top:3px}
+#searchStatus{padding:9px 12px;color:var(--dim);font:11px var(--mono)}
+#searchSelected{display:none;padding:11px 12px;background:var(--panel);border:1px solid var(--mag);margin-top:5px;box-shadow:0 8px 24px #0009}
+#searchSelected strong{display:block;margin-bottom:3px}
+#searchSelected .meta{display:block;margin-bottom:9px}
+#searchSelected .btn{margin-right:5px;margin-top:3px}
+.search-pin{width:22px;height:22px;border-radius:50%;background:var(--mag);border:2px solid white;box-shadow:0 0 16px var(--mag)}
+@media(max-width:800px){#placeSearch{top:62px;left:8px;width:min(340px,calc(100% - 16px))}}
+
+/* detail */
+#detail{position:absolute;top:0;right:0;bottom:0;width:340px;max-width:100%;background:var(--panel);border-left:1px solid var(--line);z-index:1050;padding:16px;overflow:auto;transform:translateX(100%);transition:transform .2s}
+#detail.open{transform:none}
+#detail h2{margin:0 28px 4px 0;font-size:18px}
+#detail img{width:100%;border-radius:3px;margin:8px 0}
+#detail .row{margin:10px 0}
+#closeD{position:absolute;top:10px;right:10px}
+.tag{display:inline-block;border:1px solid var(--c,var(--line));color:var(--c,var(--text));padding:1px 8px;border-radius:10px;margin:2px 4px 2px 0;font-size:12px}
+/* edit mode */
+body:not(.editing) .ed{display:none!important}
+#editBtn[aria-pressed=true]{border-color:var(--mag);color:var(--mag);box-shadow:0 0 8px -2px var(--mag)}
+.form label{display:block;margin:9px 0 2px;color:var(--dim);font:11px var(--mono)}
+.form input:not([type=checkbox]),.form select,.form textarea{width:100%;padding:6px 8px;background:var(--bg);border:1px solid var(--line);border-radius:3px;color:var(--text)}
+.form .chk{display:flex;gap:6px;align-items:center;margin:3px 0;color:var(--text);font:12px var(--sans)}
+.form .two{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.form .acts{display:flex;gap:6px;flex-wrap:wrap;margin-top:14px}
+ol.stops li{display:flex;justify-content:space-between;align-items:center;gap:6px}
+ol.stops .ctl{display:flex;gap:2px}
+ol.stops .ctl button{padding:0 6px;border:1px solid var(--line);color:var(--dim)}
+.ctl2{display:flex;gap:6px;margin-top:6px}
+.ctl2 select{flex:1;background:var(--bg);color:var(--text);border:1px solid var(--line);padding:4px}
+dialog{background:var(--panel);color:var(--text);border:1px solid var(--cyan);border-radius:4px;padding:16px;width:min(340px,90vw)}
+dialog::backdrop{background:rgba(0,0,0,.6)}
+#sync{margin:0 6px}
+/* markers */
+.mk{width:26px;height:26px;border-radius:50%;background:var(--bg);border:2px solid var(--c);color:var(--c);display:grid;place-items:center;font:500 10px var(--mono);box-shadow:0 0 10px -1px var(--c);transition:transform .15s,opacity .15s}
+.mk.hi{box-shadow:0 0 0 3px rgba(255,61,184,.55),0 0 10px var(--c)}
+.mk.sel{transform:scale(1.35);background:var(--c);color:var(--bg);z-index:5}
+.mk.dim{opacity:.3}
+.mk.done{border-style:dashed;opacity:.65}
+.mk.num{background:var(--c);color:var(--bg);font-weight:600;font-size:12px}
+.leaflet-tile-pane{filter:invert(1) hue-rotate(180deg) brightness(.85) contrast(.9) saturate(.7)}
+.leaflet-tooltip{background:var(--panel);color:var(--text);border:1px solid var(--cyan);font-family:var(--mono)}
+.leaflet-tooltip:before{display:none}
+@media(max-width:800px){
+ #menuBtn{display:block}main{grid-template-columns:1fr}
+ aside#side{position:absolute;inset:0 15% 0 0;transform:translateX(-100%);transition:transform .2s}
+ aside#side.open{transform:none}
+ #detail{top:auto;height:55%;width:100%;transform:translateY(100%);border-left:0;border-top:1px solid var(--line)}
+ #detail.open{transform:none}.count span{display:none}
+}
+@media(prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+</head>
+<body>
+<div id="app">
+<header>
+ <button id="menuBtn" class="btn" aria-label="Toggle sidebar">☰</button>
+ <div class="logo">tokyo<b>ioioi</b></div>
+ <nav role="tablist">
+  <button class="tab" role="tab" data-view="map" aria-selected="true">MAP</button>
+  <button class="tab" role="tab" data-view="itin" aria-selected="false">ITINERARIES</button>
+  <button class="tab" role="tab" data-view="places" aria-selected="false">PLACES</button>
+ </nav>
+ <div class="count"><b id="cnt">0</b> <span>places visible</span></div>
+ <span id="sync" class="meta"></span><button id="authBtn" class="btn" hidden>Sign in</button>
+ <button id="editBtn" class="btn" aria-pressed="false">✎ EDIT</button>
+</header>
+<main>
+ <aside id="side">
+  <input id="q" type="search" placeholder="Search name, tag, neighborhood…" aria-label="Search places">
+  <section id="v-map" style="display:grid;gap:14px"></section>
+  <section id="v-itin" hidden class="list"></section>
+  <section id="v-places" hidden class="list"></section>
+  <div class="foot">
+   <button class="btn mag" id="reset">Reset filters</button>
+   <button class="btn" id="exp">Export JSON</button>
+   <button class="btn" id="imp">Import JSON</button>
+   <button class="btn ed" id="addP">+ New place</button>
+   <button class="btn ed" id="addI">+ New itinerary</button>
+   <button class="btn ed" id="resetData">Restore sample data</button>
+   <input type="file" id="file" accept=".json,application/json" hidden>
+  </div>
+ </aside>
+ <div id="mapwrap">
+  <div id="map" aria-label="Map of Tokyo"></div>
+
+  <div id="placeSearch" aria-label="Search for new places">
+   <form id="placeSearchForm" role="search">
+    <input id="placeSearchInput" type="search" autocomplete="off" placeholder="Find a place in Tokyo…" aria-label="Find a new place">
+    <button type="submit" aria-label="Search">⌕</button>
+   </form>
+   <div id="searchResults" role="listbox" aria-label="Search suggestions"></div>
+   <div id="searchSelected" aria-live="polite"></div>
+  </div>
+  <div class="bar">
+   <div class="seg" id="modeSeg" role="group" aria-label="Marker colors by"></div>
+   <div class="seg" id="routeSeg" role="group" aria-label="Itinerary route lines"></div>
+  </div>
+  <div id="legend"></div>
+  <div id="toast" role="status"></div>
+  <div id="detail" aria-live="polite"><button id="closeD" class="btn" aria-label="Close details">✕</button><div id="dbody"></div></div>
+ </div>
+</main>
+</div>
+
+<dialog id="loginDlg"><div class="form"><h2>Sign in</h2>
+ <label for="lg-mail">Email</label><input id="lg-mail" type="email" autocomplete="username">
+ <label for="lg-pass">Password</label><input id="lg-pass" type="password" autocomplete="current-password">
+ <p id="loginErr" class="meta"></p>
+ <div class="acts"><button class="btn" id="lgGo">Sign in</button><button class="btn" id="lgNo">Cancel</button></div></div></dialog>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script>
+/* =====================================================================
+   CONFIG — change the map start position and tile provider here.
+   (Tiles: CARTO dark, built on OpenStreetMap data. Swap tileUrl for e.g.
+   'https://tile.openstreetmap.org/{z}/{x}/{y}.png' for the standard OSM look.)
+   ===================================================================== */
+const CONFIG={
+  center:[35.6762,139.7003], zoom:12,
+  // Esri works when you double-click the file. OpenStreetMap tiles are blocked on file://,
+  // use them only when the page is served from http://localhost (python3 -m http.server):
+  //   tileUrl:'https://tile.openstreetmap.org/{z}/{x}/{y}.png', attribution:'&copy; OpenStreetMap contributors'
+  tileUrl:'https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}',
+  attribution:'Tiles &copy; Esri'
+};
+// ONLINE SHARING: paste your Firebase web-app config here, e.g.
+// {apiKey:"…",authDomain:"…firebaseapp.com",projectId:"…",appId:"…"}
+// Leave null to work locally only (data saved in this browser).
+const FIREBASE_CONFIG={
+  apiKey:"AIzaSyBvmSudBXBT5ivb727Atbjad-WbEoyziMQ",
+  authDomain:"tokyoioi.firebaseapp.com",
+  projectId:"tokyoioi",
+  storageBucket:"tokyoioi.firebasestorage.app",
+  messagingSenderId:"826540497992",
+  appId:"1:826540497992:web:a240eb4177264087164c7d"
+};
+
+/* =====================================================================
+   DATA — edit this section only.
+   NOTE: coordinates are approximate (to ~100 m) and NOT verified on site.
+   Check each place in Google Maps before the trip (button in detail panel).
+   Descriptions are intentionally short; nothing like hours/prices is stated.
+   ===================================================================== */
+const DATA={
+  // ADD A PERSON: add {id,name,color}; use the id in place.proposedBy
+  people:[
+    {id:'enrico',name:'Eritto',color:'#47e08a'},
+    {id:'marghe',name:'Magre',color:'#ff00aa'},
+    {id:'cristo',name:'Pristio',color:'#ff8c00'},
+    {id:'teo',name:'Meo',color:'#006b3c'},
+    {id:'cami',name:'Mami',color:'#9d7bff'},
+    {id:'marta',name:'Malta',color:'#ff69b4'},
+    {id:'feula',name:'Fegola',color:'#3d8bff'},  
+    {id:'davide',name:'Ravide',color:'#b6ff3c'}
+  ],
+  // ADD A CATEGORY / CHANGE A MARKER COLOR: edit color (hex) and glyph (1-2 chars shown on marker)
+  categories:[
+    {id:'food',name:'Restaurants & bars',color:'#ffb020',glyph:'FB'},
+    {id:'music',name:'Music venues & clubs',color:'#ff3db8',glyph:'MU'},
+    {id:'records',name:'Record stores',color:'#22e6ff',glyph:'RC'},
+    {id:'museum',name:'Museums & galleries',color:'#9d7bff',glyph:'MG'},
+    {id:'digital',name:'Digital art & immersive',color:'#b6ff3c',glyph:'DA'},
+    {id:'arch',name:'Architecture & design',color:'#3d8bff',glyph:'AR'},
+    {id:'park',name:'Parks & nature',color:'#47e08a',glyph:'PK'},
+    {id:'shop',name:'Shops',color:'#ff7a45',glyph:'SH'},
+    {id:'cafe',name:'Cafés',color:'#d9a066',glyph:'CF'},
+    {id:'poi',name:'Points of interest',color:'#c8d0e6',glyph:'PI'}
+  ],
+  // CREATE AN ITINERARY: add an entry; placeIds are in visiting order. This is the ONLY place
+  // where itinerary membership is stored (place.itineraryIds is derived automatically).
+  itineraries:[
+    {id:'itinerary-1',name:'Itinerary 1',color:'#ff3db8',description:'West side: Shibuya, Harajuku, Shimokitazawa, Shinjuku.',
+     placeIds:['tower-shibuya','www-shibuya','yoyogi-park','prada-aoyama','shimokita','bearpond','disk-union-shinjuku','golden-gai']},
+    {id:'itinerary-2',name:'Itinerary 2',color:'#22e6ff',description:'Art, tech and old Tokyo.',
+     placeIds:['icc-hatsudai','mori-art','teamlab-borderless','akihabara','ueno-museum','sensoji']}
+  ],
+  // ADD A PLACE: copy one block. priority: high|medium|low. status: to-visit|visited|skipped.
+  // Optional: address, website, mapUrl, photo, notes, estimatedVisitMinutes.
+  places:[
+    {id:'tower-shibuya',name:'Tower Records Shibuya',latitude:35.6613,longitude:139.6986,categoryIds:['records','shop'],proposedBy:'enrico',neighborhood:'Shibuya',priority:'medium',status:'to-visit',description:'Multi-floor record shop.',tags:['vinyl','japan']},
+    {id:'www-shibuya',name:'WWW / WWW X',latitude:35.6616,longitude:139.6975,categoryIds:['music'],proposedBy:'davide',neighborhood:'Shibuya',priority:'high',status:'to-visit',description:'Live music venue (check the program before going).',tags:['live','electronic']},
+    {id:'yoyogi-park',name:'Yoyogi Park',latitude:35.6715,longitude:139.6949,categoryIds:['park'],proposedBy:'marghe',neighborhood:'Harajuku',priority:'low',status:'to-visit',description:'Large city park next to Harajuku.',tags:['green']},
+    {id:'prada-aoyama',name:'Prada Aoyama',latitude:35.6654,longitude:139.7124,categoryIds:['arch','shop'],proposedBy:'marghe',neighborhood:'Aoyama',priority:'medium',status:'to-visit',description:'Building by Herzog & de Meuron.',tags:['architecture']},
+    {id:'shimokita',name:'Shimokitazawa (station area)',latitude:35.6613,longitude:139.6682,categoryIds:['poi','shop'],proposedBy:'enrico',neighborhood:'Shimokitazawa',priority:'high',status:'to-visit',description:'Neighborhood known for vintage shops and small music venues.',tags:['vintage','live']},
+    {id:'bearpond',name:'Bear Pond Espresso',latitude:35.6617,longitude:139.6672,categoryIds:['cafe'],proposedBy:'davide',neighborhood:'Shimokitazawa',priority:'low',status:'to-visit',description:'Coffee stop in Shimokitazawa.',tags:['coffee']},
+    {id:'disk-union-shinjuku',name:'Disk Union Shinjuku',latitude:35.6906,longitude:139.7040,categoryIds:['records','music'],proposedBy:'enrico',neighborhood:'Shinjuku',priority:'high',status:'to-visit',description:'Record store chain with several genre-specific shops in the area.',tags:['vinyl','experimental']},
+    {id:'golden-gai',name:'Golden Gai',latitude:35.6942,longitude:139.7048,categoryIds:['food','poi'],proposedBy:'davide',neighborhood:'Shinjuku',priority:'medium',status:'to-visit',description:'Dense cluster of tiny bars.',tags:['bars','night']},
+    {id:'icc-hatsudai',name:'NTT InterCommunication Center (ICC)',latitude:35.6830,longitude:139.6862,categoryIds:['museum','digital'],proposedBy:'enrico',neighborhood:'Hatsudai',priority:'high',status:'to-visit',description:'Gallery for media art and sound.',tags:['media art','sound']},
+    {id:'mori-art',name:'Mori Art Museum',latitude:35.6604,longitude:139.7292,categoryIds:['museum'],proposedBy:'marghe',neighborhood:'Roppongi',priority:'high',status:'to-visit',description:'Contemporary art museum in Roppongi Hills.',tags:['contemporary']},
+    {id:'teamlab-borderless',name:'teamLab Borderless',latitude:35.6613,longitude:139.7405,categoryIds:['digital'],proposedBy:'marghe',neighborhood:'Azabudai',priority:'high',status:'to-visit',description:'Immersive digital art museum.',tags:['immersive']},
+    {id:'akihabara',name:'Akihabara Radio Kaikan (area)',latitude:35.6984,longitude:139.7712,categoryIds:['shop','poi'],proposedBy:'davide',neighborhood:'Akihabara',priority:'medium',status:'to-visit',description:'Electronics and subculture district.',tags:['electronics','retro']},
+    {id:'ueno-museum',name:'Tokyo National Museum',latitude:35.7189,longitude:139.7766,categoryIds:['museum'],proposedBy:'marghe',neighborhood:'Ueno',priority:'low',status:'visited',description:'In Ueno Park.',tags:['history']},
+    {id:'sensoji',name:'Sensō-ji',latitude:35.7148,longitude:139.7967,categoryIds:['poi'],proposedBy:'enrico',neighborhood:'Asakusa',priority:'low',status:'to-visit',description:'Historic temple in Asakusa.',tags:['temple']},
+    {id:'miraikan',name:'Miraikan',latitude:35.6196,longitude:139.7767,categoryIds:['museum','digital'],proposedBy:'davide',neighborhood:'Odaiba',priority:'medium',status:'to-visit',description:'Science and technology museum. Not in any itinerary yet.',tags:['science']}
+  ]
+};
+
+// Keep the people defined in this HTML as the canonical list of participants.
+// Firestore may still contain an older, shorter list; don't let it hide new names.
+const DEFAULT_PEOPLE=DATA.people.map(person=>({...person}));
+
+/* =====================================================================
+   APPLICATION CODE — beginners can ignore everything below this line.
+   ===================================================================== */
+const PRIORITIES=['high','medium','low'], STATUSES=['to-visit','visited','skipped'];
+const state={q:'',mode:'category',route:'selected',view:'map',itin:null,sel:null,
+  f:{itin:new Set(),cat:new Set(),person:new Set(),hood:new Set(),prio:new Set(),status:new Set()}};
+const $=s=>document.querySelector(s);
+const byId=(arr,id)=>arr.find(x=>x.id===id);
+const validColor=c=>/^#[0-9a-f]{3,8}$/i.test(c)?c:'#8590ab';
+// Safe DOM builder: text is always inserted as text, never as HTML.
+function h(tag,a={},...kids){const e=document.createElement(tag);
+  for(const[k,v]of Object.entries(a)){ if(v==null||(v===false&&!k.startsWith('aria-')))continue;
+    if(k==='class')e.className=v; else if(k==='c')e.style.setProperty('--c',validColor(v));
+    else if(k.startsWith('on'))e.addEventListener(k.slice(2),v);
+    else if(k.startsWith('aria-'))e.setAttribute(k,String(v)); // "true"/"false", needed by the CSS [aria-pressed=true]
+    else e.setAttribute(k,v===true?'':v);}
+  kids.flat().forEach(c=>{if(c!=null&&c!==false)e.append(c)});return e;}
+const validPlace=p=>p&&typeof p.id==='string'&&typeof p.name==='string'&&Number.isFinite(p.latitude)&&Number.isFinite(p.longitude)&&
+  Math.abs(p.latitude)<=90&&Math.abs(p.longitude)<=180&&Array.isArray(p.categoryIds)&&typeof p.proposedBy==='string';
+const itinsOf=id=>DATA.itineraries.filter(i=>i.placeIds.includes(id));
+const catOf=id=>byId(DATA.categories,id)||{id:'?',name:'Unknown',color:'#8590ab',glyph:'?'};
+const personOf=id=>byId(DATA.people,id)||{id,name:id||'Unknown',color:'#8590ab'};
+
+/* ---- Map ---- */
+const map=L.map('map',{zoomControl:true,preferCanvas:false}).setView(CONFIG.center,CONFIG.zoom);
+const tiles=L.tileLayer(CONFIG.tileUrl,{attribution:CONFIG.attribution,maxZoom:19,subdomains:'abcd'}).addTo(map);
+let tileErrors=0;
+tiles.on('tileerror',()=>{if(++tileErrors===3)toast('Map tiles are not loading. Check your connection or the tile provider in CONFIG.')});
+const markerLayer=L.layerGroup().addTo(map), routeLayer=L.layerGroup().addTo(map);
+let markers=new Map();
+function toast(msg){const t=$('#toast');t.textContent=msg;t.style.display='block';clearTimeout(toast.t);toast.t=setTimeout(()=>t.style.display='none',4000)}
+
+
+/* ---- Open-source place search: Photon / OpenStreetMap ---- */
+let photonResults=[];
+let selectedPhotonFeature=null;
+let photonAbort=null;
+let photonTimer=null;
+const photonPreview=L.layerGroup().addTo(map);
+function photonLabel(feature){
+  const p=feature.properties||{};
+  return p.name||p.street||p.locality||p.city||'Unnamed place';
+}
+function photonAddress(feature){
+  const p=feature.properties||{};
+  return [p.street,p.housenumber,p.district,p.city,p.state,p.postcode,p.country].filter(Boolean).filter((v,i,a)=>a.indexOf(v)===i).join(', ');
+}
+function showPhotonStatus(message){
+  const box=$('#searchResults');box.replaceChildren(h('div',{id:'searchStatus'},message));box.style.display='block';
+}
+function renderPhotonResults(features){
+  const box=$('#searchResults');box.replaceChildren();
+  if(!features.length){showPhotonStatus('No results found. Try another search.');return;}
+  features.forEach((feature,index)=>{
+    const name=photonLabel(feature),address=photonAddress(feature);
+    box.append(h('button',{type:'button',class:'search-result','aria-pressed':selectedPhotonFeature===feature,role:'option',onclick:()=>selectPhotonFeature(feature)},
+      h('strong',{},name),h('small',{},address||'OpenStreetMap place')));
+  });
+  box.style.display='block';
+}
+async function searchPhoton(query){
+  if(photonAbort)photonAbort.abort();
+  if(query.trim().length<2){$('#searchResults').style.display='none';return;}
+  photonAbort=new AbortController();
+  showPhotonStatus('Searching OpenStreetMap…');
+  try{
+    const url='https://photon.komoot.io/api/?'+new URLSearchParams({q:query.trim(),lat:String(CONFIG.center[0]),lon:String(CONFIG.center[1]),limit:'7',lang:'en'});
+    const response=await fetch(url,{signal:photonAbort.signal,headers:{Accept:'application/json'}});
+    if(!response.ok)throw new Error('Search service returned '+response.status);
+    const data=await response.json();
+    photonResults=(data.features||[]).filter(f=>Array.isArray(f.geometry?.coordinates)&&f.geometry.coordinates.length>=2);
+    renderPhotonResults(photonResults);
+  }catch(err){
+    if(err.name==='AbortError')return;
+    showPhotonStatus('Search unavailable. Check your connection and try again.');
+  }
+}
+function selectPhotonFeature(feature){
+  selectedPhotonFeature=feature;
+  const coords=feature.geometry.coordinates,lon=Number(coords[0]),lat=Number(coords[1]);
+  if(!Number.isFinite(lat)||!Number.isFinite(lon))return;
+  map.setView([lat,lon],Math.max(map.getZoom(),16));
+  photonPreview.clearLayers();
+  L.marker([lat,lon],{icon:L.divIcon({className:'',html:'<div class="search-pin"></div>',iconSize:[22,22],iconAnchor:[11,11]}),title:photonLabel(feature)}).addTo(photonPreview).bindTooltip(photonLabel(feature),{direction:'top'}).openTooltip();
+  const box=$('#searchSelected');box.replaceChildren(
+    h('strong',{},photonLabel(feature)),
+    h('span',{class:'meta'},photonAddress(feature)||'Address not available'),
+    h('button',{class:'btn mag',type:'button',onclick:()=>addPhotonPlace(feature)},'＋ ADD TO MY MAP'),
+    h('button',{class:'btn',type:'button',onclick:()=>{selectedPhotonFeature=null;photonPreview.clearLayers();box.style.display='none';}},'Dismiss'));
+  box.style.display='block';
+  renderPhotonResults(photonResults);
+}
+function categoryForPhoton(feature){
+  const p=feature.properties||{},kind=((p.osm_key||'')+' '+(p.osm_value||'')+' '+(p.type||'')).toLowerCase();
+  if(/music|theatre|nightclub|arts_centre|concert_hall/.test(kind))return 'music';
+  if(/museum|gallery|artwork|exhibition/.test(kind))return 'museum';
+  if(/restaurant|bar|pub|fast_food|food/.test(kind))return 'food';
+  if(/cafe|coffee/.test(kind))return 'cafe';
+  if(/park|garden|nature_reserve/.test(kind))return 'park';
+  if(/shop|retail|supermarket|mall/.test(kind))return 'shop';
+  if(/record/.test(kind))return 'records';
+  if(/architecture|building/.test(kind))return 'arch';
+  return 'poi';
+}
+function addPhotonPlace(feature){
+  const name=photonLabel(feature),coords=feature.geometry.coordinates,lon=Number(coords[0]),lat=Number(coords[1]);
+  if(!Number.isFinite(lat)||!Number.isFinite(lon)||Math.abs(lat)>90||Math.abs(lon)>180){toast('This result has invalid coordinates.');return;}
+  const existing=DATA.places.find(p=>p.name.trim().toLowerCase()===name.trim().toLowerCase()||
+    (Math.abs(p.latitude-lat)<0.00025&&Math.abs(p.longitude-lon)<0.00025));
+  if(existing){toast('This place is already in your map.');openPlace(existing.id);$('#searchSelected').style.display='none';return;}
+  const props=feature.properties||{},category=categoryForPhoton(feature),categoryId=byId(DATA.categories,category)?category:'poi';
+  const address=photonAddress(feature);
+  const p={id:uniqueId(slug(name),DATA.places),name,latitude:lat,longitude:lon,
+    categoryIds:[categoryId],proposedBy:(DATA.people[0]||{id:'enrico'}).id,
+    neighborhood:props.district||props.locality||props.city||props.suburb||'',priority:'medium',status:'to-visit',
+    description:[props.osm_key,props.osm_value].filter(Boolean).join(' · '),address,
+    mapUrl:`https://www.openstreetmap.org/?mlat=${lat}&mlon=${lon}#map=17/${lat}/${lon}`,
+    tags:['photon','openstreetmap']};
+  DATA.places.push(p);
+  commit([setOp('places',p)]);
+  $('#searchSelected').style.display='none';$('#searchResults').style.display='none';$('#placeSearchInput').value='';
+  selectedPhotonFeature=null;photonPreview.clearLayers();
+  render();openPlace(p.id);toast('Added to your Tokyoioioi map.');
+}
+$('#placeSearchForm').addEventListener('submit',e=>{
+  e.preventDefault();clearTimeout(photonTimer);searchPhoton($('#placeSearchInput').value);
+});
+$('#placeSearchInput').addEventListener('input',e=>{
+  clearTimeout(photonTimer);const q=e.target.value;
+  if(q.trim().length<2){$('#searchResults').style.display='none';return;}
+  photonTimer=setTimeout(()=>searchPhoton(q),350);
+});
+document.addEventListener('click',e=>{
+  if(!$('#placeSearch').contains(e.target))$('#searchResults').style.display='none';
+});
+
+/* ---- Filtering: the single source of truth ---- */
+// OR inside a group, AND between groups, empty group = no restriction.
+function matches(p){
+  const s=state.f,q=state.q.trim().toLowerCase();
+  if(q&&![p.name,p.description,p.neighborhood,p.address,...(p.tags||[])].join(' ').toLowerCase().includes(q))return false;
+  const pass=(set,fn)=>!set.size||fn();
+  return pass(s.cat,()=>p.categoryIds.some(c=>s.cat.has(c)))&&pass(s.person,()=>s.person.has(p.proposedBy))
+    &&pass(s.hood,()=>s.hood.has(p.neighborhood))&&pass(s.prio,()=>s.prio.has(p.priority))
+    &&pass(s.status,()=>s.status.has(p.status))&&pass(s.itin,()=>itinsOf(p.id).some(i=>s.itin.has(i.id)));
+}
+const visiblePlaces=()=>DATA.places.filter(p=>validPlace(p)&&matches(p));
+
+/* ---- Markers ---- */
+function markerEl(p){
+  const cat=catOf(p.categoryIds[0]),it=state.itin&&byId(DATA.itineraries,state.itin);
+  let color=cat.color,label=cat.glyph,cls='mk';
+  if(state.mode==='person')color=personOf(p.proposedBy).color;
+  if(state.mode==='itinerary'){
+    const idx=it?it.placeIds.indexOf(p.id):-1;
+    if(idx>=0){color=it.color;label=String(idx+1);cls+=' num'}else{color='#8590ab';cls+=' dim'}
+  }
+  if(p.priority==='high')cls+=' hi';
+  if(p.status==='visited')cls+=' done';
+  if(state.sel===p.id)cls+=' sel';
+  return h('div',{class:cls,c:color},label);
+}
+function updateMarkers(vis){
+  const keep=new Set(vis.map(p=>p.id));
+  for(const[id,m]of markers)if(!keep.has(id)){markerLayer.removeLayer(m)}
+  vis.forEach(p=>{
+    let m=markers.get(p.id);
+    if(!m){m=L.marker([p.latitude,p.longitude],{keyboard:true,title:p.name,riseOnHover:true});
+      m.bindTooltip(h('span',{},p.name),{direction:'top',offset:[0,-12]});
+      m.on('click',()=>openPlace(p.id));markers.set(p.id,m)}
+    m.setLatLng([p.latitude,p.longitude]);m.setTooltipContent(h('span',{},p.name));m.setIcon(L.divIcon({className:'',html:markerEl(p),iconSize:[26,26],iconAnchor:[13,13]}));
+    if(!markerLayer.hasLayer(m))markerLayer.addLayer(m);
+  });
+}
+// Lines connect stops in order. They are NOT walking or transit routes.
+function updateRoutes(){
+  routeLayer.clearLayers();
+  const list=state.route==='all'?DATA.itineraries:state.route==='selected'?DATA.itineraries.filter(i=>i.id===state.itin):[];
+  list.forEach(it=>{
+    const pts=it.placeIds.map(id=>byId(DATA.places,id)).filter(p=>p&&validPlace(p)).map(p=>[p.latitude,p.longitude]);
+    if(pts.length>1)L.polyline(pts,{color:validColor(it.color),weight:3,opacity:.85,dashArray:'6 6',interactive:false}).addTo(routeLayer);
+  });
+}
+
+/* ---- Sidebar ---- */
+function chipGroup(title,key,opts){
+  return h('div',{class:'grp'},h('h4',{},title),h('div',{class:'chips'},opts.map(o=>
+    h('button',{class:'chip',c:o.color,'aria-pressed':state.f[key].has(o.id),onclick:()=>{
+      const s=state.f[key];s.has(o.id)?s.delete(o.id):s.add(o.id);render()}},o.color?h('i'):null,o.label))));
+}
+function renderFilters(){
+  const hoods=[...new Set(DATA.places.map(p=>p.neighborhood).filter(Boolean))].sort();
+  $('#v-map').replaceChildren(
+    chipGroup('Itinerary','itin',DATA.itineraries.map(i=>({id:i.id,label:i.name,color:i.color}))),
+    chipGroup('Category','cat',DATA.categories.map(c=>({id:c.id,label:c.name,color:c.color}))),
+    chipGroup('Person','person',DATA.people.map(p=>({id:p.id,label:p.name,color:p.color}))),
+    chipGroup('Neighborhood','hood',hoods.map(x=>({id:x,label:x}))),
+    chipGroup('Priority','prio',PRIORITIES.map(x=>({id:x,label:x}))),
+    chipGroup('Status','status',STATUSES.map(x=>({id:x,label:x}))));
+}
+function renderItins(vis){
+  const ids=new Set(vis.map(p=>p.id));
+  $('#v-itin').replaceChildren(...DATA.itineraries.map(it=>{
+    const stops=it.placeIds.map(id=>byId(DATA.places,id)),sel=state.itin===it.id;
+    const shown=stops.filter(p=>p&&ids.has(p.id)).length;
+    const free=DATA.places.filter(p=>!it.placeIds.includes(p.id));
+    return h('div',{},
+      h('button',{class:'card',c:it.color,'aria-pressed':sel,onclick:()=>{state.itin=it.id;render();fitItin(it)}},
+        h('strong',{},it.name),h('br'),h('span',{},it.description||''),h('br'),
+        h('small',{},`${stops.filter(Boolean).length} stops · ${shown} match filters`)),
+      sel?h('ol',{class:'stops',c:it.color},stops.map((p,i)=>h('li',{},
+        p?h('button',{onclick:()=>openPlace(p.id)},h('b',{},String(i+1)),p.name):h('span',{class:'meta'},`${i+1}. (missing place "${it.placeIds[i]}")`),
+        h('span',{class:'ed ctl'},
+          h('button',{'aria-label':'Move up',onclick:()=>moveStop(it,i,-1)},'↑'),
+          h('button',{'aria-label':'Move down',onclick:()=>moveStop(it,i,1)},'↓'),
+          h('button',{'aria-label':'Remove stop',onclick:()=>removeStop(it,i)},'✕'))))):null,
+      sel?h('div',{class:'ed ctl2'},
+        h('select',{'aria-label':'Add a place to this itinerary',onchange:e=>{if(e.target.value){it.placeIds.push(e.target.value);commit([setOp('itineraries',it)]);render()}}},
+          h('option',{value:''},'+ Add stop…'),free.map(p=>h('option',{value:p.id},p.name))),
+        h('button',{class:'btn',onclick:()=>delItin(it)},'Delete itinerary')):null);
+  }));
+}
+function renderPlaces(vis){
+  $('#v-places').replaceChildren(...(vis.length?vis.map(p=>h('button',{class:'card',c:catOf(p.categoryIds[0]).color,'aria-pressed':state.sel===p.id,onclick:()=>openPlace(p.id)},
+    h('strong',{},p.name),h('br'),h('small',{},[p.neighborhood,p.priority,p.status].filter(Boolean).join(' · ')))):[h('div',{class:'empty'},'No places match the current filters.')]));
+}
+function renderLegend(){
+  const rows=state.mode==='person'?DATA.people.map(p=>[p.color,p.name]):
+    state.mode==='itinerary'?[...DATA.itineraries.map(i=>[i.color,i.name+' (numbered stops)']),['#8590ab','Not in selected itinerary']]:
+    DATA.categories.map(c=>[c.color,c.name]);
+  $('#legend').replaceChildren(...rows.map(([c,n])=>h('div',{c},h('i'),n)),
+    h('div',{class:'meta'},'Magenta ring = high priority · dashed = visited'));
+}
+function seg(el,opts,get,set){el.replaceChildren(...opts.map(([v,l])=>h('button',{'aria-pressed':get()===v,onclick:()=>{set(v);render()}},l)))}
+
+/* ---- Detail panel ---- */
+function openPlace(id){
+  const p=byId(DATA.places,id);if(!p||!validPlace(p))return;
+  state.sel=id;map.panTo([p.latitude,p.longitude]);
+  const row=(l,...c)=>h('div',{class:'row'},h('div',{class:'meta'},l),c);
+  const gm=p.mapUrl||`https://www.google.com/maps/search/?api=1&query=${p.latitude},${p.longitude}`;
+  const safeUrl=u=>/^https?:\/\//i.test(u||'')?u:null;
+  const img=p.photo&&safeUrl(p.photo)?h('img',{src:p.photo,alt:p.name,onerror:e=>e.target.remove()}):null;
+  $('#dbody').replaceChildren(h('h2',{},p.name),h('div',{class:'meta'},`${p.latitude.toFixed(4)}, ${p.longitude.toFixed(4)}`),img,
+    p.description?h('p',{},p.description):null,
+    p.neighborhood?row('Neighborhood',p.neighborhood):null,
+    row('Categories',p.categoryIds.map(c=>h('span',{class:'tag',c:catOf(c).color},catOf(c).name))),
+    row('Proposed by',h('span',{class:'tag',c:personOf(p.proposedBy).color},personOf(p.proposedBy).name)),
+    itinsOf(p.id).length?row('Itineraries',itinsOf(p.id).map(i=>h('span',{class:'tag',c:i.color},`${i.name} · stop ${i.placeIds.indexOf(p.id)+1}`))):null,
+    p.priority?row('Priority',p.priority):null,p.status?row('Status',p.status):null,
+    p.estimatedVisitMinutes?row('Estimated visit',p.estimatedVisitMinutes+' min'):null,
+    p.address?row('Address',p.address):null,p.notes?row('Notes',p.notes):null,
+    p.tags&&p.tags.length?row('Tags',p.tags.join(', ')):null,
+    h('div',{class:'row'},h('a',{class:'btn',href:gm,target:'_blank',rel:'noopener'},'Open in Google Maps'),' ',
+      safeUrl(p.website)?h('a',{class:'btn',href:p.website,target:'_blank',rel:'noopener'},'Website'):null,' ',h('button',{class:'btn ed',onclick:()=>editPlace(p.id)},'Edit')),
+    h('p',{class:'meta'},'Coordinates are approximate. Verify before you go.'));
+  $('#detail').classList.add('open');$('#side').classList.remove('open');render(true);
+}
+$('#closeD').onclick=()=>{state.sel=null;$('#detail').classList.remove('open');render(true)};
+function fitItin(it){const pts=it.placeIds.map(i=>byId(DATA.places,i)).filter(p=>p&&validPlace(p)).map(p=>[p.latitude,p.longitude]);
+  if(pts.length)map.fitBounds(pts,{padding:[60,60],maxZoom:14})}
+
+/* ---- Render + preferences ---- */
+function render(){
+  const vis=visiblePlaces();
+  $('#cnt').textContent=vis.length;
+  updateMarkers(vis);updateRoutes();renderLegend();renderItins(vis);renderPlaces(vis);
+  document.querySelectorAll('.chip[aria-pressed]').forEach(()=>{});
+  renderFilters();
+  seg($('#modeSeg'),[['category','Category'],['itinerary','Itinerary'],['person','Person']],()=>state.mode,v=>{
+    state.mode=v;if(v==='itinerary'&&!state.itin)state.itin=DATA.itineraries[0]&&DATA.itineraries[0].id});
+  seg($('#routeSeg'),[['none','No routes'],['selected','Selected'],['all','All routes']],()=>state.route,v=>state.route=v);
+  if(!vis.length)toast('No places match the current filters.');
+  try{localStorage.setItem('tokyoioioi',JSON.stringify({mode:state.mode,route:state.route,itin:state.itin,view:state.view}))}catch(e){}
+}
+document.querySelectorAll('.tab').forEach(t=>t.onclick=()=>{
+  state.view=t.dataset.view;
+  document.querySelectorAll('.tab').forEach(x=>x.setAttribute('aria-selected',x===t));
+  ['map','itin','places'].forEach(v=>$('#v-'+v).hidden=v!==state.view);
+  $('#v-map').style.display=state.view==='map'?'grid':'none';
+});
+$('#q').oninput=e=>{state.q=e.target.value;render()};
+$('#reset').onclick=()=>{Object.values(state.f).forEach(s=>s.clear());state.q='';$('#q').value='';render()};
+$('#menuBtn').onclick=()=>$('#side').classList.toggle('open');
+
+/* ---- Export / import (places, categories, people, itineraries) ---- */
+$('#exp').onclick=()=>{
+  const a=h('a',{href:URL.createObjectURL(new Blob([JSON.stringify(DATA,null,2)],{type:'application/json'})),download:'tokyoioioi-backup.json'});
+  document.body.append(a);a.click();a.remove();toast('Exported tokyoioioi-backup.json');
+};
+$('#imp').onclick=()=>$('#file').click();
+$('#file').onchange=async e=>{
+  const f=e.target.files[0];e.target.value='';if(!f)return;
+  try{
+    const d=JSON.parse(await f.text());
+    const ok=validData(d);
+    if(!ok)throw new Error('missing arrays or invalid places (need id, name, latitude, longitude, categoryIds, proposedBy)');
+    if(!confirm(`Replace the current data with ${d.places.length} places from "${f.name}"?`))return;
+    const old=Object.fromEntries(COLS.map(k=>[k,DATA[k].map(x=>x.id)]));
+    Object.assign(DATA,{people:d.people,categories:d.categories,itineraries:d.itineraries,places:d.places});
+    markerLayer.clearLayers();markers=new Map();Object.values(state.f).forEach(s=>s.clear());
+    state.sel=null;state.itin=null;$('#detail').classList.remove('open');commit(allOps(old));render();toast('Import complete');
+  }catch(err){toast('Import failed: '+err.message)}
+};
+
+/* ---- Editing (edit mode) ----
+   Every change is saved to this browser's localStorage by save().
+   For sharing later, only save() and the startup load need to change. */
+const PALETTE=['#ff3db8','#22e6ff','#b6ff3c','#ffb020','#9d7bff','#3d8bff'];
+const slug=t=>t.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'')||'item';
+function uniqueId(base,list){let id=base,n=2;while(byId(list,id))id=base+'-'+n++;return id}
+function validData(d){return !!d&&['people','categories','itineraries','places'].every(k=>Array.isArray(d[k]))&&d.places.every(validPlace)
+  &&d.itineraries.every(i=>i&&typeof i.id==='string'&&Array.isArray(i.placeIds))&&d.categories.every(c=>c&&c.id&&c.name)&&d.people.every(p=>p&&p.id&&p.name)}
+function save(){try{localStorage.setItem('tokyoioioi-data',JSON.stringify(DATA))}catch(e){toast('Could not save in this browser. Use Export JSON.')}}
+function editPlace(id){
+  const old=id?byId(DATA.places,id):null,c=map.getCenter();
+  const p=old||{name:'',latitude:+c.lat.toFixed(5),longitude:+c.lng.toFixed(5),categoryIds:[],proposedBy:(DATA.people[0]||{}).id,priority:'medium',status:'to-visit'};
+  const inp=(n,l,v,t='text')=>h('div',{},h('label',{for:'f-'+n},l),h('input',{id:'f-'+n,type:t,value:v==null?'':v,step:t==='number'?'any':null}));
+  const sel=(n,l,opts,cur)=>h('div',{},h('label',{for:'f-'+n},l),h('select',{id:'f-'+n},opts.map(([v,t])=>h('option',{value:v,selected:v===cur},t))));
+  const chk=(k,v,t,on)=>h('label',{class:'chk'},h('input',{type:'checkbox','data-k':k,value:v,checked:on}),t);
+  $('#dbody').replaceChildren(h('div',{class:'form'},
+    h('h2',{},old?'Edit place':'New place'),
+    inp('name','Name',p.name),
+    h('div',{class:'two'},inp('lat','Latitude',p.latitude,'number'),inp('lng','Longitude',p.longitude,'number')),
+    h('button',{class:'btn',onclick:()=>{state.pick=true;toast('Click the map to set the position')}},'Pick on map'),
+    inp('hood','Neighborhood',p.neighborhood),
+    h('div',{class:'two'},sel('person','Proposed by',DATA.people.map(x=>[x.id,x.name]),p.proposedBy),sel('prio','Priority',PRIORITIES.map(x=>[x,x]),p.priority)),
+    sel('status','Status',STATUSES.map(x=>[x,x]),p.status),
+    h('label',{},'Categories'),DATA.categories.map(x=>chk('cat',x.id,x.name,p.categoryIds.includes(x.id))),
+    h('label',{},'Itineraries'),DATA.itineraries.map(x=>chk('itin',x.id,x.name,!!old&&x.placeIds.includes(old.id))),
+    h('label',{for:'f-desc'},'Description'),h('textarea',{id:'f-desc',rows:'2'},p.description||''),
+    inp('tags','Tags (comma separated)',(p.tags||[]).join(', ')),
+    inp('web','Website (https://…)',p.website),
+    h('label',{for:'f-notes'},'Notes'),h('textarea',{id:'f-notes',rows:'2'},p.notes||''),
+    h('div',{class:'acts'},h('button',{class:'btn',onclick:()=>submitPlace(old)},'Save'),
+      h('button',{class:'btn',onclick:()=>old?openPlace(old.id):$('#closeD').click()},'Cancel'),
+      old?h('button',{class:'btn mag',onclick:()=>deletePlace(old.id)},'Delete'):null)));
+  $('#detail').classList.add('open');$('#side').classList.remove('open');
+}
+function submitPlace(old){
+  const v=n=>$('#f-'+n).value.trim(),lat=parseFloat(v('lat')),lng=parseFloat(v('lng'));
+  const checked=k=>[...document.querySelectorAll(`#dbody input[data-k="${k}"]:checked`)].map(x=>x.value);
+  if(!v('name'))return toast('Name is required');
+  if(!(Math.abs(lat)<=90&&Math.abs(lng)<=180))return toast('Latitude/longitude not valid');
+  if(!checked('cat').length)return toast('Choose at least one category');
+  if(v('web')&&!/^https?:\/\//i.test(v('web')))return toast('Website must start with http:// or https://');
+  const data={name:v('name'),latitude:lat,longitude:lng,categoryIds:checked('cat'),proposedBy:v('person'),neighborhood:v('hood'),
+    priority:v('prio'),status:v('status'),description:v('desc'),notes:v('notes'),website:v('web'),
+    tags:v('tags').split(',').map(t=>t.trim()).filter(Boolean)};
+  let p=old;
+  if(p)Object.assign(p,data);else{p={id:uniqueId(slug(data.name),DATA.places),...data};DATA.places.push(p)}
+  const want=checked('itin');
+  const ops=[setOp('places',p)];
+  DATA.itineraries.forEach(it=>{const has=it.placeIds.includes(p.id),w=want.includes(it.id);
+    if(w&&!has)it.placeIds.push(p.id);if(!w&&has)it.placeIds=it.placeIds.filter(x=>x!==p.id);
+    if(w!==has)ops.push(setOp('itineraries',it))});
+  commit(ops);render();openPlace(p.id);
+}
+function deletePlace(id){
+  const p=byId(DATA.places,id);if(!p||!confirm(`Delete "${p.name}"?`))return;
+  const aff=DATA.itineraries.filter(i=>i.placeIds.includes(id));
+  DATA.places=DATA.places.filter(x=>x.id!==id);DATA.itineraries.forEach(it=>it.placeIds=it.placeIds.filter(x=>x!==id));
+  const m=markers.get(id);if(m){markerLayer.removeLayer(m);markers.delete(id)}
+  state.sel=null;$('#detail').classList.remove('open');commit([delOp('places',id),...aff.map(i=>setOp('itineraries',i))]);render();
+}
+function newItin(){
+  const name=(prompt('Itinerary name?')||'').trim();if(!name)return;
+  const id=uniqueId('itinerary-'+slug(name),DATA.itineraries);
+  const it={id,name,color:PALETTE[DATA.itineraries.length%PALETTE.length],description:'',placeIds:[],order:Date.now()};
+  DATA.itineraries.push(it);state.itin=id;commit([setOp('itineraries',it)]);render();
+  document.querySelector('.tab[data-view="itin"]').click();
+}
+function delItin(it){
+  if(!confirm(`Delete itinerary "${it.name}"? The places stay on the map.`))return;
+  DATA.itineraries=DATA.itineraries.filter(x=>x!==it);state.f.itin.delete(it.id);
+  if(state.itin===it.id)state.itin=DATA.itineraries[0]?DATA.itineraries[0].id:null;
+  commit([delOp('itineraries',it.id)]);render();
+}
+function moveStop(it,i,d){const j=i+d;if(j<0||j>=it.placeIds.length)return;[it.placeIds[i],it.placeIds[j]]=[it.placeIds[j],it.placeIds[i]];commit([setOp('itineraries',it)]);render()}
+function removeStop(it,i){it.placeIds.splice(i,1);commit([setOp('itineraries',it)]);render()}
+map.on('click',e=>{if(!state.pick||!$('#f-lat'))return;state.pick=false;
+  $('#f-lat').value=e.latlng.lat.toFixed(5);$('#f-lng').value=e.latlng.lng.toFixed(5);toast('Position set')});
+$('#editBtn').onclick=e=>{state.edit=!state.edit;document.body.classList.toggle('editing',state.edit);
+  e.currentTarget.setAttribute('aria-pressed',String(state.edit));render()};
+$('#addP').onclick=()=>editPlace(null);
+$('#addI').onclick=newItin;
+const ORIGINAL=JSON.stringify(DATA);
+$('#resetData').onclick=()=>{
+  if(!confirm('Discard ALL your changes and restore the sample data?'))return;
+  try{localStorage.removeItem('tokyoioioi-data')}catch(e){}
+  Object.assign(DATA,JSON.parse(ORIGINAL));markerLayer.clearLayers();markers=new Map();
+  state.sel=null;state.itin=DATA.itineraries[0].id;$('#detail').classList.remove('open');render();
+};
+// Load the saved working copy (if any) instead of the sample data in the file.
+try{
+  const sv=JSON.parse(localStorage.getItem('tokyoioioi-data')||'null');
+  if(validData(sv)){
+    Object.assign(DATA,sv);
+    // Keep newly added/renamed participants even if this browser has an older cached copy.
+    const cachedPeople=Array.isArray(sv.people)?sv.people:[];
+    const merged=new Map(cachedPeople.map(person=>[person.id,person]));
+    for(const person of DEFAULT_PEOPLE)merged.set(person.id,{...(merged.get(person.id)||{}),...person});
+    DATA.people=[...DEFAULT_PEOPLE.map(person=>merged.get(person.id)),
+      ...cachedPeople.filter(person=>!DEFAULT_PEOPLE.some(base=>base.id===person.id))];
+  }
+}catch(e){}
+
+/* ---- Online sync (Firestore). One document per place/itinerary/category/person. ----
+   Edits apply locally first, then commit() writes only the changed documents. */
+const COLS=['places','itineraries','categories','people'];
+let db=null,auth=null,user=null,unsubs=[],cloudEmpty=false,seeded=false;
+const setOp=(col,o)=>({col,id:o.id,data:o}),delOp=(col,id)=>({col,id,del:true});
+const clean=o=>{const r=JSON.parse(JSON.stringify(o));delete r.id;return r};
+
+async function commit(ops) {
+  save();
+
+  if (!db) {
+    toast('Modalità LOCAL: dati salvati solo nel browser.');
+    return;
+  }
+
+  if (!user) {
+    toast('Non autenticato: accedi prima di salvare su Firebase.');
+    return;
+  }
+
+  try {
+    for (let i = 0; i < ops.length; i += 400) {
+      const batch = db.batch();
+
+      ops.slice(i, i + 400).forEach(o => {
+        const ref = db.collection(o.col).doc(o.id);
+
+        if (o.del) {
+          batch.delete(ref);
+        } else {
+          batch.set(ref, clean(o.data));
+        }
+      });
+
+      await batch.commit();
+    }
+
+    toast('Salvataggio Firebase completato.');
+  } catch (err) {
+    console.error('Errore Firestore:', err.code, err.message, err);
+    toast('Errore Firebase: ' + (err.code || 'sconosciuto'));
+  }
+}
+
+function allOps(old){const ops=[];
+  for(const k of COLS){DATA[k].forEach((o,i)=>{if(k!=='places')o.order=i;ops.push(setOp(k,o))});
+    if(old)old[k].filter(id=>!byId(DATA[k],id)).forEach(id=>ops.push(delOp(k,id)))}
+  return ops}
+function maybeSeed(){
+  if(!cloudEmpty||!user||seeded)return;seeded=true;
+  if(confirm('The online atlas is empty. Upload the data currently shown here to it?')){commit(allOps(null));toast('Uploaded to the cloud')}
+}
+function onRemote(col,snap){
+  if(snap.empty){
+    if(col==='places'){cloudEmpty=true;maybeSeed()}
+    // An empty/old cloud people collection must not erase participants defined in the HTML.
+    if(col==='people')DATA.people=DEFAULT_PEOPLE.map(person=>({...person}));
+    if(col==='people'){
+      clearTimeout(onRemote.t);
+      onRemote.t=setTimeout(()=>{save();render()},60);
+    }
+    return;
+  }
+  if(col==='places')cloudEmpty=false;
+  const remote=snap.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>(a.order||0)-(b.order||0));
+  if(col==='people'){
+    // HTML names/colors win for matching IDs; keep additional people present only in Firestore.
+    const merged=new Map(remote.map(person=>[person.id,person]));
+    for(const person of DEFAULT_PEOPLE)merged.set(person.id,{...(merged.get(person.id)||{}),...person});
+    DATA.people=[...DEFAULT_PEOPLE.map(person=>merged.get(person.id)),
+      ...remote.filter(person=>!DEFAULT_PEOPLE.some(base=>base.id===person.id))];
+  }else{
+    DATA[col]=remote;
+  }
+  clearTimeout(onRemote.t);
+  onRemote.t=setTimeout(()=>{if(!byId(DATA.itineraries,state.itin))state.itin=DATA.itineraries[0]?DATA.itineraries[0].id:null;save();render()},60);
+}
+function startListeners(){
+  unsubs.forEach(f=>f());
+  unsubs=COLS.map(c=>db.collection(c).onSnapshot(sn=>onRemote(c,sn),
+    e=>toast(e.code==='permission-denied'?'Sign in to see the shared atlas':'Cloud: '+e.message)));
+}
+function updateAuthUI(){
+  const canEdit=!db||!!user;
+  $('#editBtn').hidden=!canEdit;if(!canEdit&&state.edit)$('#editBtn').click();
+  $('#authBtn').hidden=!db;$('#authBtn').textContent=user?'Sign out ('+(user.email||'').split('@')[0]+')':'Sign in';
+  $('#sync').textContent=db?'● LIVE':'○ LOCAL';$('#resetData').hidden=!!db;
+}
+function initCloud(){
+  if(FIREBASE_CONFIG&&window.firebase){
+    try{firebase.initializeApp(FIREBASE_CONFIG);db=firebase.firestore();auth=firebase.auth();
+      auth.onAuthStateChanged(u=>{user=u;updateAuthUI();startListeners();maybeSeed()})}
+    catch(e){db=null;toast('Firebase error: '+e.message)}
+  }else if(FIREBASE_CONFIG)toast('Firebase SDK did not load: working locally');
+  $('#authBtn').onclick=()=>user?auth.signOut():$('#loginDlg').showModal();
+  $('#lgNo').onclick=()=>$('#loginDlg').close();
+  $('#lgGo').onclick=()=>auth.signInWithEmailAndPassword($('#lg-mail').value.trim(),$('#lg-pass').value)
+    .then(()=>{$('#lg-pass').value='';$('#loginErr').textContent='';$('#loginDlg').close()}).catch(e=>$('#loginErr').textContent=e.message);
+  updateAuthUI();
+}
+
+/* ---- Start ---- */
+try{Object.assign(state,JSON.parse(localStorage.getItem('tokyoioioi')||'{}'));
+  if(!byId(DATA.itineraries,state.itin))state.itin=DATA.itineraries[0]&&DATA.itineraries[0].id;
+  if(state.view!=='map'){const t=document.querySelector(`.tab[data-view="${state.view}"]`);t&&t.click()}}catch(e){}
+render();initCloud();
+setTimeout(()=>map.invalidateSize(),200);
+window.addEventListener('resize',()=>map.invalidateSize());
+</script>
+</body>
+</html>
