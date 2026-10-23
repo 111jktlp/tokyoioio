@@ -238,6 +238,10 @@ const DATA={
     {id:'park',name:'Parks & nature',color:'#47e08a',glyph:'PK'},
     {id:'shop',name:'Shops',color:'#ff7a45',glyph:'SH'},
     {id:'cafe',name:'Cafés',color:'#d9a066',glyph:'CF'},
+    {id:'main',name:'Main attraction',color:'#47e08a',glyph:'M'},
+    {id:'niche',name:'Niche attraction',color:'#ff00aa',glyph:'ni'},
+    {id:'activities',name:'Activities',color:'#ff8c00',glyph:'Ac'},
+    {id:'temples',name:'Temples',color:'#006b3c',glyph:'Tm'},  
     {id:'poi',name:'Points of interest',color:'#c8d0e6',glyph:'PI'}
   ],
   // CREATE AN ITINERARY: add an entry; placeIds are in visiting order. This is the ONLY place
@@ -272,6 +276,8 @@ const DATA={
 // Keep the people defined in this HTML as the canonical list of participants.
 // Firestore may still contain an older, shorter list; don't let it hide new names.
 const DEFAULT_PEOPLE=DATA.people.map(person=>({...person}));
+    
+const DEFAULT_CATEGORIES = DATA.categories.map(category => ({...category}));    
 
 /* =====================================================================
    APPLICATION CODE — beginners can ignore everything below this line.
@@ -671,6 +677,20 @@ try{
   const sv=JSON.parse(localStorage.getItem('tokyoioioi-data')||'null');
   if(validData(sv)){
     Object.assign(DATA,sv);
+      
+        const mergedCategories = new Map(
+      DEFAULT_CATEGORIES.map(category => [category.id, {...category}])
+    );
+
+    for (const category of (sv.categories || [])) {
+      mergedCategories.set(category.id, {
+        ...(mergedCategories.get(category.id) || {}),
+        ...category
+      });
+    }
+
+    DATA.categories = [...mergedCategories.values()];  
+      
     // Keep newly added/renamed participants even if this browser has an older cached copy.
     const cachedPeople=Array.isArray(sv.people)?sv.people:[];
     const merged=new Map(cachedPeople.map(person=>[person.id,person]));
@@ -745,14 +765,41 @@ function onRemote(col,snap){
   }
   if(col==='places')cloudEmpty=false;
   const remote=snap.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>(a.order||0)-(b.order||0));
-  if(col==='people'){
-    // HTML names/colors win for matching IDs; keep additional people present only in Firestore.
-    const merged=new Map(remote.map(person=>[person.id,person]));
-    for(const person of DEFAULT_PEOPLE)merged.set(person.id,{...(merged.get(person.id)||{}),...person});
-    DATA.people=[...DEFAULT_PEOPLE.map(person=>merged.get(person.id)),
-      ...remote.filter(person=>!DEFAULT_PEOPLE.some(base=>base.id===person.id))];
-  }else{
-    DATA[col]=remote;
+  if (col === 'people') {
+    const merged = new Map(remote.map(person => [person.id, person]));
+
+    for (const person of DEFAULT_PEOPLE) {
+      merged.set(person.id, {
+        ...(merged.get(person.id) || {}),
+        ...person
+      });
+    }
+
+    DATA.people = [
+      ...DEFAULT_PEOPLE.map(person => merged.get(person.id)),
+      ...remote.filter(person =>
+        !DEFAULT_PEOPLE.some(base => base.id === person.id)
+      )
+    ];
+
+  } else if (col === 'categories') {
+    // Mantiene le categorie nuove definite nell'HTML
+    // e conserva quelle aggiunte direttamente nell'app.
+    const merged = new Map(
+      DEFAULT_CATEGORIES.map(category => [category.id, {...category}])
+    );
+
+    for (const category of remote) {
+      merged.set(category.id, {
+        ...(merged.get(category.id) || {}),
+        ...category
+      });
+    }
+
+    DATA.categories = [...merged.values()];
+
+  } else {
+    DATA[col] = remote;
   }
   clearTimeout(onRemote.t);
   onRemote.t=setTimeout(()=>{if(!byId(DATA.itineraries,state.itin))state.itin=DATA.itineraries[0]?DATA.itineraries[0].id:null;save();render()},60);
